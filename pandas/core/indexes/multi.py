@@ -588,7 +588,7 @@ class MultiIndex(Index):
                 tuples = np.asarray(tuples._values)
 
             arrays = list(lib.tuples_to_object_array(tuples).T)
-        elif isinstance(tuples, list):
+        elif is_list_like(tuples, list):
             arrays = list(lib.to_object_array_tuples(tuples).T)
         else:
             arrs = zip(*tuples)
