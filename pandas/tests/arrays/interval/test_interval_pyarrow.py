@@ -158,3 +158,41 @@ def test_from_arrow_from_raw_struct_array():
 
     result = dtype.__from_arrow__(pa.chunked_array([arr]))
     tm.assert_extension_array_equal(result, expected)
+
+
+def test_from_arrow_datetime_tz_subtype():
+    # GH#64297 - extension subtypes (DatetimeTZDtype) must not use np.asarray
+    pa = pytest.importorskip("pyarrow")
+
+    from pandas.core.arrays.arrow.extension_types import ArrowIntervalType
+
+    left = pd.Timestamp("2012-01-01", tz="Europe/Brussels")
+    right = pd.Timestamp("2013-01-01", tz="Europe/Brussels")
+    arrow_type = ArrowIntervalType(pa.timestamp("us", tz="Europe/Brussels"), "right")
+    arr = pa.array([{"left": left, "right": right}], type=arrow_type)
+
+    dtype = pd.IntervalDtype(
+        pd.DatetimeTZDtype(unit="us", tz="Europe/Brussels"), "right"
+    )
+    result = dtype.__from_arrow__(arr)
+
+    expected = IntervalArray.from_arrays(
+        pd.array([left], dtype=dtype.subtype),
+        pd.array([right], dtype=dtype.subtype),
+        closed="right",
+    )
+    tm.assert_extension_array_equal(result, expected)
+    assert isinstance(result.dtype.subtype, pd.DatetimeTZDtype)
+
+    result = dtype.__from_arrow__(pa.chunked_array([arr]))
+    tm.assert_extension_array_equal(result, expected)
+
+    # empty arrow array
+    empty = pa.array([], type=arrow_type)
+    result = dtype.__from_arrow__(empty)
+    expected_empty = IntervalArray.from_arrays(
+        pd.array([], dtype=dtype.subtype),
+        pd.array([], dtype=dtype.subtype),
+        closed="right",
+    )
+    tm.assert_extension_array_equal(result, expected_empty)

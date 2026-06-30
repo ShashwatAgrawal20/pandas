@@ -1481,21 +1481,36 @@ class IntervalDtype(PandasExtensionDtype):
         else:
             chunks = array.chunks
 
+        subtype = self.subtype
         results = []
         for arr in chunks:
             if isinstance(arr, pyarrow.ExtensionArray):
                 arr = arr.storage
-            left = np.asarray(arr.field("left"), dtype=self.subtype)
-            right = np.asarray(arr.field("right"), dtype=self.subtype)
+            # Extension subtypes (e.g. DatetimeTZDtype) cannot be passed to
+            # np.asarray(..., dtype=...); convert via the subtype instead.
+            # GH#64297
+            if isinstance(subtype, ExtensionDtype):
+                left = subtype.__from_arrow__(arr.field("left"))
+                right = subtype.__from_arrow__(arr.field("right"))
+            else:
+                left = np.asarray(arr.field("left"), dtype=subtype)
+                right = np.asarray(arr.field("right"), dtype=subtype)
             iarr = IntervalArray.from_arrays(left, right, closed=self.closed)
             results.append(iarr)
 
         if not results:
+            if isinstance(subtype, ExtensionDtype):
+                empty = subtype.construct_array_type()._from_sequence([], dtype=subtype)
+                return IntervalArray.from_arrays(empty, empty, closed=self.closed)
             return IntervalArray.from_arrays(
-                np.array([], dtype=self.subtype),
-                np.array([], dtype=self.subtype),
+                np.array([], dtype=subtype),
+                np.array([], dtype=subtype),
                 closed=self.closed,
             )
+        if len(results) == 1:
+            # Avoid np.concatenate on extension sides (e.g. DatetimeTZDtype),
+            # which can coerce empty / tz-aware data to object (GH#64297).
+            return results[0]
         return IntervalArray._concat_same_type(results)
 
     def _get_common_dtype(self, dtypes: list[DtypeObj]) -> DtypeObj | None:
