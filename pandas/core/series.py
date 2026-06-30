@@ -4870,11 +4870,15 @@ class Series(base.IndexOpsMixin, NDFrame):  # type: ignore[misc]
         **kwargs,
     ) -> Series:
         """
-        Map values of Series according to an input mapping or function.
+        Apply a function or mapping elementwise to a Series.
 
+        Map values of Series according to an input mapping or function.
         Used for substituting each value in a Series with another value,
         that may be derived from a function, a ``dict`` or
         a :class:`Series`.
+
+        For elementwise transformations of Series values (e.g.
+        ``lambda x: x + 1``), prefer ``Series.map`` over ``Series.apply``.
 
         Parameters
         ----------
@@ -4949,7 +4953,8 @@ class Series(base.IndexOpsMixin, NDFrame):  # type: ignore[misc]
         3      NaN
         dtype: str
 
-        It also accepts a function:
+        It also accepts a function applied elementwise (prefer this over
+        ``Series.apply`` for simple per-value transforms):
 
         >>> s.map("I am a {}".format)
         0       I am a cat
@@ -4957,6 +4962,12 @@ class Series(base.IndexOpsMixin, NDFrame):  # type: ignore[misc]
         2       I am a nan
         3    I am a rabbit
         dtype: str
+
+        >>> pd.Series([1, 2, 3]).map(lambda x: x + 1)
+        0    2
+        1    3
+        2    4
+        dtype: int64
 
         To avoid applying the function to missing values (and keep them as
         ``NaN``) ``na_action='ignore'`` can be used:
